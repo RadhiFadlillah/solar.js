@@ -1,0 +1,25 @@
+{
+	"name": "solar.js",
+	"version": "0.0.1",
+	"description": "Library to calculate sun position using SPA algorithm",
+	"author": "Radhi Fadlillah",
+	"license": "MIT",
+	"main": "index.js",
+	"type": "module",
+	"keywords": [
+		"astronomy"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/RadhiFadlillah/solar.js.git"
+	},
+	"bugs": {
+		"url": "https://github.com/RadhiFadlillah/solar.js/issues"
+	},
+	"homepage": "https://github.com/RadhiFadlillah/solar.js#readme",
+	"devDependencies": {
+		"esbuild": "^0.13.14",
+		"typescript": "^4.5.2"
+	},
+	"scripts": {}
+}
