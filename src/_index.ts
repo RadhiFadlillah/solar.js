@@ -1,3 +1,20 @@
+import type { earthPeriodicValue } from './earth-periodic';
+import {
+	earthPeriodicL0,
+	earthPeriodicL1,
+	earthPeriodicL2,
+	earthPeriodicL3,
+	earthPeriodicL4,
+	earthPeriodicL5,
+	earthPeriodicB0,
+	earthPeriodicB1,
+	earthPeriodicR0,
+	earthPeriodicR1,
+	earthPeriodicR2,
+	earthPeriodicR3,
+	earthPeriodicR4,
+} from './earth-periodic';
+
 export default function (args: {
 	year: number;
 	month: number;
@@ -33,7 +50,78 @@ export default function (args: {
 	args.surfaceAzimuthRotation ||= 0;
 	args.deltaT ||= getDeltaT(args.year, args.month);
 
-	// 3.1.1
+	// =========================================================================
+	// 1. CALCULATE THE JULIAN AND JULIAN EPHEMERIS DAY, CENTURY, AND MILLENNIUM
+	// =========================================================================
+
+	// 1.1 Calculate the Julian Day (JD)
+	const jd = getJulianDay(
+		args.year,
+		args.month,
+		args.day,
+		args.hour,
+		args.minute,
+		args.second,
+		args.timezone
+	);
+
+	// 1.2. Calculate the Julian Ephemeris Day (JDE)
+	const jde = jd + args.deltaT / 86_400;
+
+	// 1.3. Calculate the Julian century (JC) and the Julian Ephemeris Century (JCE)
+	// for the 2000 standard epoch
+	const jc = (jd - 2_451_545) / 36_525;
+	const jce = (jde - 2_451_545) / 36_525;
+
+	// 1.4. Calculate the Julian Ephemeris Millennium (JME) for the 2000 standard epoch
+	const jme = jce / 10;
+
+	// ====================================================================================
+	// 2. CALCULATE EARTH HELIOCENTRIC LONGITUDE, LATITUDE, AND RADIUS VECTOR (L, B, AND R)
+	// ====================================================================================
+
+	// 2.1. Calculate the terms L0, L1, L2, L3, L4, and L5 (in radians)
+	const l0 = getEarthPeriodic(earthPeriodicL0, jme);
+	const l1 = getEarthPeriodic(earthPeriodicL1, jme);
+	const l2 = getEarthPeriodic(earthPeriodicL2, jme);
+	const l3 = getEarthPeriodic(earthPeriodicL3, jme);
+	const l4 = getEarthPeriodic(earthPeriodicL4, jme);
+	const l5 = getEarthPeriodic(earthPeriodicL5, jme);
+
+	// 2.2. Calculate the Earth heliocentric longitude (L in radians), convert it to
+	// degrees then limit its value to between 0 and 360.
+	let l =
+		(l0 +
+			l1 * jme +
+			l2 * jme ** 2 +
+			l3 * jme ** 3 +
+			l4 * jme ** 4 +
+			l5 * jme ** 5) /
+		10 ** 8;
+
+	l = (l * 180) / Math.PI;
+	l = limitDegrees(l);
+
+	// 2.3. Calculate the terms B0 and B1 (in radians)
+	const b0 = getEarthPeriodic(earthPeriodicB0, jme);
+	const b1 = getEarthPeriodic(earthPeriodicB1, jme);
+
+	// 2.4. Calculate the Earth heliocentric latitude (B in radians), convert it to
+	// degrees then limit its value to between 0 and 360.
+	let b = (b0 + b1 * jme) / 10 ** 8;
+	b = (b * 180) / Math.PI;
+	b = limitDegrees(b);
+
+	// 2.5. Calculate the terms R0, R1, R2, R3, and R4 (in Astronomical Units, AU)
+	const r0 = getEarthPeriodic(earthPeriodicR0, jme);
+	const r1 = getEarthPeriodic(earthPeriodicR1, jme);
+	const r2 = getEarthPeriodic(earthPeriodicR2, jme);
+	const r3 = getEarthPeriodic(earthPeriodicR3, jme);
+	const r4 = getEarthPeriodic(earthPeriodicR4, jme);
+
+	// 2.6. Calculate the Earth radius vector (R in Astronomical Units)
+	const r =
+		(r0 + r1 * jme + r2 * jme ** 2 + r3 * jme ** 3 + r4 * jme ** 4) / 10 ** 8;
 }
 
 /**
@@ -177,7 +265,7 @@ function getDeltaT(year: number, month: number): number {
  * @param minute - default to 0
  * @param second - default to 0
  * @param timezone - in hours, default to 0
- * @returns
+ * @returns Julian Days
  */
 export function getJulianDay(
 	year: number,
@@ -208,4 +296,32 @@ export function getJulianDay(
 	} else {
 		return jd;
 	}
+}
+
+/**
+ * Calculate earth periodic terms value for B.
+ *
+ * @param constants - array of values for earth periodic constants
+ * @param jme - value of Julian Ephemeris Millennium
+ * @returns L value in radians
+ */
+export function getEarthPeriodic(
+	constants: earthPeriodicValue[],
+	jme: number
+): number {
+	return constants
+		.map((v) => v.A * Math.cos(v.B + v.C * jme))
+		.reduce((acc, v) => acc + v);
+}
+
+/**
+ * Limit range of degrees to between 0 and 360.
+ *
+ * @param value - the original degrees
+ * @returns the limited degrees
+ */
+export function limitDegrees(value: number): number {
+	const a = value / 360;
+	const f = Math.abs(a - Math.trunc(a));
+	return value >= 0 ? 360 * f : 360 - 360 * f;
 }
