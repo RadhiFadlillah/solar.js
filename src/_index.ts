@@ -167,6 +167,18 @@ function getDeltaT(year: number, month: number): number {
 	return -20 + 32 * u ** 2;
 }
 
+/**
+ * Calculate Julian Days from given parameters.
+ *
+ * @param year
+ * @param month
+ * @param day
+ * @param hour - default to 0
+ * @param minute - default to 0
+ * @param second - default to 0
+ * @param timezone - in hours, default to 0
+ * @returns
+ */
 export function getJulianDay(
 	year: number,
 	month: number,
