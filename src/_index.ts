@@ -1,4 +1,5 @@
 import type { earthPeriodicValue } from './earth-periodic';
+import type { nutationPeriodicValue } from './nutation-periodic';
 import {
 	earthPeriodicL0,
 	earthPeriodicL1,
@@ -14,6 +15,7 @@ import {
 	earthPeriodicR3,
 	earthPeriodicR4,
 } from './earth-periodic';
+import { nutationPeriodicTerms } from './nutation-periodic';
 
 export default function (args: {
 	year: number;
@@ -122,6 +124,54 @@ export default function (args: {
 	// 2.6. Calculate the Earth radius vector (R in Astronomical Units)
 	const r =
 		(r0 + r1 * jme + r2 * jme ** 2 + r3 * jme ** 3 + r4 * jme ** 4) / 10 ** 8;
+
+	// ==================================================
+	// 3. CALCULATE THE GEOCENTRIC LONGITUDE AND LATITUDE (Θ AND Β)
+	// ==================================================
+
+	// 3.1. Calculate the geocentric longitude, Θ (in degrees)
+	const theta = limitDegrees(l + 180);
+
+	// 3.2. Calculate the geocentric latitude, β (in degrees)
+	const beta = -b;
+
+	// ================================================================
+	// 4. CALCULATE THE NUTATION IN LONGITUDE AND OBLIQUITY (ΔΨ AND ΔΕ)
+	// ================================================================
+
+	// 4.1. Calculate the mean elongation of the moon from the sun, X0 (in degrees)
+	const x0 =
+		297.85036 + 445_267.11148 * jce - 0.0019142 * jce ** 2 + jce ** 3 / 189_474;
+
+	// 4.2. Calculate the mean anomaly of the sun (Earth), X1 (in degrees)
+	const x1 =
+		357.52772 + 35_999.05034 * jce - 0.0001603 * jce ** 2 - jce ** 3 / 300_000;
+
+	// 4.3. Calculate the mean anomaly of the moon, X2 (in degrees)
+	const x2 =
+		134.96298 + 477_198.867398 * jce + 0.0086972 * jce ** 2 + jce ** 3 / 56_250;
+
+	// 4.4. Calculate the moon's argument of latitude, X3 (in degrees)
+	const x3 =
+		93.27191 + 483_202.017538 * jce - 0.0036825 * jce ** 2 + jce ** 3 / 327_270;
+
+	// 4.5. Calculate the longitude of the ascending node of the moon’s mean orbit on
+	// the ecliptic, measured from the mean equinox of the date, X4 (in degrees)
+	const x4 =
+		125.04452 - 1934.136261 * jce + 0.0020708 * jce ** 2 + jce ** 3 / 450_000;
+
+	// 4.6. Calculate the nutation longitude and obliquity (both in degrees)
+	let deltaPsi: number = 0;
+	let deltaEpsilon: number = 0;
+
+	nutationPeriodicTerms.forEach((v) => {
+		const sumXY = x0 * v.Y0 + x1 * v.Y1 + x2 * v.Y2 + x3 * v.Y3 + x4 * v.Y4;
+		deltaPsi += (v.A + v.B * jce) * Math.sin(sumXY);
+		deltaEpsilon += (v.C + v.D * jce) * Math.sin(sumXY);
+	});
+
+	deltaPsi = deltaPsi / 36_000_000;
+	deltaEpsilon = deltaEpsilon / 36_000_000;
 }
 
 /**
