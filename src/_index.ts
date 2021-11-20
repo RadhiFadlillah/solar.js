@@ -125,9 +125,9 @@ export default function (args: {
 	const r =
 		(r0 + r1 * jme + r2 * jme ** 2 + r3 * jme ** 3 + r4 * jme ** 4) / 10 ** 8;
 
-	// ==================================================
+	// ============================================================
 	// 3. CALCULATE THE GEOCENTRIC LONGITUDE AND LATITUDE (Θ AND Β)
-	// ==================================================
+	// ============================================================
 
 	// 3.1. Calculate the geocentric longitude, Θ (in degrees)
 	const theta = limitDegrees(l + 180);
@@ -172,6 +172,62 @@ export default function (args: {
 
 	deltaPsi = deltaPsi / 36_000_000;
 	deltaEpsilon = deltaEpsilon / 36_000_000;
+
+	// ===============================================================
+	// 5. CALCULATE THE TRUE OBLIQUITY OF THE ECLIPTIC, Ε (IN DEGREES)
+	// ===============================================================
+
+	// 5.1. Calculate the mean obliquity of the ecliptic, ε0 (in arc seconds)
+	const u = jme / 10;
+	const e0 =
+		84_381.448 -
+		4_680.93 * u -
+		1.55 * u ** 2 +
+		1_999.25 * u ** 3 -
+		51.38 * u ** 4 -
+		249.67 * u ** 5 -
+		39.05 * u ** 6 +
+		7.12 * u ** 7 +
+		27.87 * u ** 8 +
+		5.79 * u ** 9 +
+		2.45 * u ** 10;
+
+	// 5.2. Calculate the true obliquity of the ecliptic, ε (in degrees)
+	const epsilon = e0 / 3_600 + deltaEpsilon;
+
+	// =======================================================
+	// 6. CALCULATE THE ABERRATION CORRECTION, ΔΤ (IN DEGREES)
+	// =======================================================
+
+	const deltaTau = -20.4898 / (3600 * r);
+
+	// =======================================================
+	// 7. CALCULATE THE APPARENT SUN LONGITUDE, Λ (IN DEGREES)
+	// =======================================================
+
+	const lambda = theta + deltaPsi + deltaTau;
+
+	// =================================================================
+	// 8. CALCULATE THE APPARENT SIDEREAL TIME AT GREENWICH AT ANY GIVEN
+	// TIME, V (IN DEGREES)
+	// =================================================================
+
+	// 8.1. Calculate the mean sidereal time at Greenwich, V0 (in degrees)
+	let v0 =
+		280.46061837 +
+		360.98564736629 * (jd - 2_451_545) +
+		0.000387933 * jc ** 2 -
+		jc ** 3 / 38_710_000;
+
+	// 8.2. Limit V0 to the range from 0 to 360
+	v0 = limitDegrees(v0);
+
+	// 8.3. Calculate the apparent sidereal time at Greenwich, V (in degrees)
+	const v = v0 + deltaPsi * Math.cos(epsilon);
+
+	// ===============================================================
+	// 9. CALCULATE THE GEOCENTRIC SUN RIGHT ASCENSION, Α (IN DEGREES)
+	// ===============================================================
 }
 
 /**
