@@ -1,5 +1,4 @@
 import type { earthPeriodicValue } from './earth-periodic';
-import type { nutationPeriodicValue } from './nutation-periodic';
 import {
 	earthPeriodicL0,
 	earthPeriodicL1,
@@ -16,6 +15,7 @@ import {
 	earthPeriodicR4,
 } from './earth-periodic';
 import { nutationPeriodicTerms } from './nutation-periodic';
+import { sin, cos } from './trigonometry';
 
 export default function (args: {
 	year: number;
@@ -33,7 +33,19 @@ export default function (args: {
 	surfaceSlope?: number;
 	surfaceAzimuthRotation?: number;
 	deltaT?: number;
-}) {
+}): {
+	JD: number;
+	L: number;
+	B: number;
+	R: number;
+	Theta: number;
+	Beta: number;
+	DeltaPsi: number;
+	DeltaEpsilon: number;
+	Epsilon: number;
+	Lambda: number;
+	Alpha: number;
+} {
 	// If all time parts not defined, set to noon
 	if (args.hour == null && args.minute == null && args.second == null) {
 		args.hour = 12;
@@ -112,7 +124,6 @@ export default function (args: {
 	// degrees then limit its value to between 0 and 360.
 	let b = (b0 + b1 * jme) / 10 ** 8;
 	b = (b * 180) / Math.PI;
-	b = limitDegrees(b);
 
 	// 2.5. Calculate the terms R0, R1, R2, R3, and R4 (in Astronomical Units, AU)
 	const r0 = getEarthPeriodic(earthPeriodicR0, jme);
@@ -166,8 +177,8 @@ export default function (args: {
 
 	nutationPeriodicTerms.forEach((v) => {
 		const sumXY = x0 * v.Y0 + x1 * v.Y1 + x2 * v.Y2 + x3 * v.Y3 + x4 * v.Y4;
-		deltaPsi += (v.A + v.B * jce) * Math.sin(sumXY);
-		deltaEpsilon += (v.C + v.D * jce) * Math.sin(sumXY);
+		deltaPsi += (v.A + v.B * jce) * sin(sumXY);
+		deltaEpsilon += (v.C + v.D * jce) * cos(sumXY);
 	});
 
 	deltaPsi = deltaPsi / 36_000_000;
@@ -228,6 +239,20 @@ export default function (args: {
 	// ===============================================================
 	// 9. CALCULATE THE GEOCENTRIC SUN RIGHT ASCENSION, Α (IN DEGREES)
 	// ===============================================================
+
+	return {
+		JD: jd,
+		L: l,
+		B: b,
+		R: r,
+		Theta: theta,
+		Beta: beta,
+		DeltaPsi: deltaPsi,
+		DeltaEpsilon: deltaEpsilon,
+		Epsilon: epsilon,
+		Lambda: lambda,
+		Alpha: 0,
+	};
 }
 
 /**

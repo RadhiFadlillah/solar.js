@@ -1,4 +1,4 @@
-import { getJulianDay as jd } from '../src/_index';
+import { default as solar, getJulianDay as jd } from '../src/_index';
 
 test('julian day for UTC', () => {
 	expect(jd(2000, 1, 1, 12, 0, 0, 0)).toBe(2451545.0);
