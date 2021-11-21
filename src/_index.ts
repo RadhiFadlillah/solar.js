@@ -15,7 +15,7 @@ import {
 	earthPeriodicR4,
 } from './earth-periodic';
 import { nutationPeriodicTerms } from './nutation-periodic';
-import { sin, cos } from './trigonometry';
+import { sin, cos, tan } from './trigonometry';
 
 export default function (args: {
 	year: number;
@@ -45,6 +45,11 @@ export default function (args: {
 	Epsilon: number;
 	Lambda: number;
 	Alpha: number;
+	Delta: number;
+	H: number;
+	AlphaAccent: number;
+	DeltaAccent: number;
+	HAccent: number;
 } {
 	// If all time parts not defined, set to noon
 	if (args.hour == null && args.minute == null && args.second == null) {
@@ -113,7 +118,7 @@ export default function (args: {
 			l5 * jme ** 5) /
 		10 ** 8;
 
-	l = (l * 180) / Math.PI;
+	l = radToDegrees(l);
 	l = limitDegrees(l);
 
 	// 2.3. Calculate the terms B0 and B1 (in radians)
@@ -123,7 +128,7 @@ export default function (args: {
 	// 2.4. Calculate the Earth heliocentric latitude (B in radians), convert it to
 	// degrees then limit its value to between 0 and 360.
 	let b = (b0 + b1 * jme) / 10 ** 8;
-	b = (b * 180) / Math.PI;
+	b = radToDegrees(b);
 
 	// 2.5. Calculate the terms R0, R1, R2, R3, and R4 (in Astronomical Units, AU)
 	const r0 = getEarthPeriodic(earthPeriodicR0, jme);
@@ -189,19 +194,19 @@ export default function (args: {
 	// ===============================================================
 
 	// 5.1. Calculate the mean obliquity of the ecliptic, ε0 (in arc seconds)
-	const u = jme / 10;
+	const U = jme / 10;
 	const e0 =
 		84_381.448 -
-		4_680.93 * u -
-		1.55 * u ** 2 +
-		1_999.25 * u ** 3 -
-		51.38 * u ** 4 -
-		249.67 * u ** 5 -
-		39.05 * u ** 6 +
-		7.12 * u ** 7 +
-		27.87 * u ** 8 +
-		5.79 * u ** 9 +
-		2.45 * u ** 10;
+		4_680.93 * U -
+		1.55 * U ** 2 +
+		1_999.25 * U ** 3 -
+		51.38 * U ** 4 -
+		249.67 * U ** 5 -
+		39.05 * U ** 6 +
+		7.12 * U ** 7 +
+		27.87 * U ** 8 +
+		5.79 * U ** 9 +
+		2.45 * U ** 10;
 
 	// 5.2. Calculate the true obliquity of the ecliptic, ε (in degrees)
 	const epsilon = e0 / 3_600 + deltaEpsilon;
@@ -220,25 +225,90 @@ export default function (args: {
 
 	// =================================================================
 	// 8. CALCULATE THE APPARENT SIDEREAL TIME AT GREENWICH AT ANY GIVEN
-	// TIME, V (IN DEGREES)
+	// TIME, Ν (IN DEGREES)
 	// =================================================================
 
-	// 8.1. Calculate the mean sidereal time at Greenwich, V0 (in degrees)
-	let v0 =
+	// 8.1. Calculate the mean sidereal time at Greenwich, ν0 (in degrees)
+	let nu0 =
 		280.46061837 +
 		360.98564736629 * (jd - 2_451_545) +
 		0.000387933 * jc ** 2 -
 		jc ** 3 / 38_710_000;
 
-	// 8.2. Limit V0 to the range from 0 to 360
-	v0 = limitDegrees(v0);
+	// 8.2. Limit ν0 to the range from 0 to 360
+	nu0 = limitDegrees(nu0);
 
-	// 8.3. Calculate the apparent sidereal time at Greenwich, V (in degrees)
-	const v = v0 + deltaPsi * Math.cos(epsilon);
+	// 8.3. Calculate the apparent sidereal time at Greenwich, ν (in degrees)
+	const nu = nu0 + deltaPsi * cos(epsilon);
 
 	// ===============================================================
 	// 9. CALCULATE THE GEOCENTRIC SUN RIGHT ASCENSION, Α (IN DEGREES)
 	// ===============================================================
+
+	// 9.1. Calculate the sun right ascension, α (in radians)
+	let alpha = Math.atan2(
+		sin(lambda) * cos(epsilon) - tan(beta) * sin(epsilon),
+		cos(lambda)
+	);
+
+	// 9.2. Calculate α in degrees using, then limit it to the range from 0 to 360
+	alpha = radToDegrees(alpha);
+	alpha = limitDegrees(alpha);
+
+	// ============================================================
+	// 10. CALCULATE THE GEOCENTRIC SUN DECLINATION, Δ (IN DEGREES)
+	// ============================================================
+
+	const delta = radToDegrees(
+		Math.asin(sin(beta) * cos(epsilon) + cos(beta) * sin(epsilon) * sin(lambda))
+	);
+
+	// ===========================================================
+	// 11. CALCULATE THE OBSERVER LOCAL HOUR ANGLE, H (IN DEGREES)
+	// ===========================================================
+
+	const H = nu + args.longitude - alpha;
+
+	// =================================================================
+	// 12. CALCULATE THE TOPOCENTRIC SUN RIGHT ASCENSION Δ' (IN DEGREES)
+	// =================================================================
+
+	// 12.1. Calculate the equatorial horizontal parallax of the sun, ξ (in degrees)
+	const xi = 8.794 / (3_600 * r);
+
+	// 12.2. Calculate the term u (in radians)
+	const termU = Math.atan(0.99664719 * tan(args.latitude));
+
+	// 12.3. Calculate the term x
+	const termX =
+		Math.cos(termU) + (args.elevation / 6_378_140) * cos(args.latitude);
+
+	// 12.4. Calculate the term y
+	const termY =
+		0.99664719 * Math.sin(termU) +
+		(args.elevation / 6_378_140) * cos(args.latitude);
+
+	// 12.5. Calculate the parallax in the sun right ascension, ∆α (in degrees)
+	const deltaAlpha = radToDegrees(
+		Math.atan2(-termX * sin(xi) * sin(H), cos(delta) - termX * sin(xi) * cos(H))
+	);
+
+	// 12.6. Calculate the topocentric sun right ascension α' (in degrees)
+	const alphaAccent = alpha + deltaAlpha;
+
+	// 12.7. Calculate the topocentric sun declination, δ' (in degrees)
+	const deltaAccent = radToDegrees(
+		Math.atan2(
+			(sin(delta) - termY * sin(xi)) * cos(deltaAlpha),
+			cos(delta) - termX * sin(xi) * cos(H)
+		)
+	);
+
+	// ===============================================================
+	// 13. CALCULATE THE TOPOCENTRIC LOCAL HOUR ANGLE, H' (IN DEGREES)
+	// ===============================================================
+
+	const HAccent = H - deltaAlpha;
 
 	return {
 		JD: jd,
@@ -251,7 +321,12 @@ export default function (args: {
 		DeltaEpsilon: deltaEpsilon,
 		Epsilon: epsilon,
 		Lambda: lambda,
-		Alpha: 0,
+		Alpha: alpha,
+		Delta: delta,
+		H: H,
+		AlphaAccent: alphaAccent,
+		DeltaAccent: deltaAccent,
+		HAccent: HAccent,
 	};
 }
 
@@ -443,6 +518,16 @@ export function getEarthPeriodic(
 	return constants
 		.map((v) => v.A * Math.cos(v.B + v.C * jme))
 		.reduce((acc, v) => acc + v);
+}
+
+/**
+ * Convert radians into degrees.
+ *
+ * @param radians
+ * @returns angle in degrees
+ */
+export function radToDegrees(radians: number): number {
+	return (radians * 180) / Math.PI;
 }
 
 /**
