@@ -293,7 +293,9 @@ export default function (args: {
 	// 11. CALCULATE THE OBSERVER LOCAL HOUR ANGLE, H (IN DEGREES)
 	// ===========================================================
 
-	const obsHourAngle = siderealTime + args.longitude - geoSunRightAscension;
+	const obsHourAngle = limitDegrees(
+		siderealTime + args.longitude - geoSunRightAscension
+	);
 
 	// =================================================================
 	// 12. CALCULATE THE TOPOCENTRIC SUN RIGHT ASCENSION Δ' (IN DEGREES)
@@ -354,10 +356,14 @@ export default function (args: {
 	);
 
 	// 14.2. Calculate the atmospheric refraction correction, ∆e (in degrees)
-	const atmRefractionCorrection =
+	let atmRefractionCorrection =
 		(args.pressure / 1010) *
 		(283 / (273 + args.temperature)) *
 		(1.02 / (60 * tan(topoElevAngle + 10.3 / (topoElevAngle + 5.11))));
+
+	if (atmRefractionCorrection <= 0) {
+		atmRefractionCorrection = 0;
+	}
 
 	// 14.3. Calculate the topocentric elevation angle, e (in degrees)
 	const topoTrueElevAngle = topoElevAngle + atmRefractionCorrection;
