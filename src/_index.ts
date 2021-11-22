@@ -34,22 +34,44 @@ export default function (args: {
 	surfaceAzimuthRotation?: number;
 	deltaT?: number;
 }): {
-	JD: number;
-	L: number;
-	B: number;
-	R: number;
-	Theta: number;
-	Beta: number;
-	DeltaPsi: number;
-	DeltaEpsilon: number;
-	Epsilon: number;
-	Lambda: number;
-	Alpha: number;
-	Delta: number;
-	H: number;
-	AlphaAccent: number;
-	DeltaAccent: number;
-	HAccent: number;
+	JulianDay: number;
+	JulianCentury: number;
+	JulianEphemerisDay: number;
+	JulianEphemerisCentury: number;
+	JulianEphemerisMillenium: number;
+	EarthHeliocentricLongitude: number;
+	EarthHeliocentricLatitude: number;
+	EarthRadiusVector: number;
+	GeocentricLongitude: number;
+	GeocentricLatitude: number;
+	MeanMoonSunElongation: number;
+	MeanSunAnomaly: number;
+	MeanMoonAnomaly: number;
+	MoonArgumentLatitude: number;
+	MoonAscendingLongitude: number;
+	NutationLongitude: number;
+	NutationObliquity: number;
+	MeanEclipticObliquity: number;
+	TrueEclipticObliquity: number;
+	AberrationCorrection: number;
+	ApparentSunLongitude: number;
+	MeanSiderealTime: number;
+	SiderealTime: number;
+	GeocentricSunRightAscension: number;
+	GeocentricSunDeclination: number;
+	ObserverHourAngle: number;
+	SunEquatorialHorizontalParallax: number;
+	SunRightAscensionParallax: number;
+	TopocentricSunRightAscension: number;
+	TopocentricSunDeclination: number;
+	TopocentricHourAngle: number;
+	TopocentricElevationAngle: number;
+	AtmosphericRefractionCorrection: number;
+	TopocentricTrueElevationAngle: number;
+	TopocentricZenithAngle: number;
+	TopocentricAstronomersAzimuthAngle: number;
+	TopocentricAzimuthAngle: number;
+	SurfaceIncidenceAngle: number;
 } {
 	// If all time parts not defined, set to noon
 	if (args.hour == null && args.minute == null && args.second == null) {
@@ -146,10 +168,10 @@ export default function (args: {
 	// ============================================================
 
 	// 3.1. Calculate the geocentric longitude, Θ (in degrees)
-	const theta = limitDegrees(l + 180);
+	const geoLongitude = limitDegrees(l + 180);
 
 	// 3.2. Calculate the geocentric latitude, β (in degrees)
-	const beta = -b;
+	const geoLatitude = -b;
 
 	// ================================================================
 	// 4. CALCULATE THE NUTATION IN LONGITUDE AND OBLIQUITY (ΔΨ AND ΔΕ)
@@ -177,17 +199,17 @@ export default function (args: {
 		125.04452 - 1934.136261 * jce + 0.0020708 * jce ** 2 + jce ** 3 / 450_000;
 
 	// 4.6. Calculate the nutation longitude and obliquity (both in degrees)
-	let deltaPsi: number = 0;
-	let deltaEpsilon: number = 0;
+	let nutLongitude: number = 0;
+	let nutObliquity: number = 0;
 
 	nutationPeriodicTerms.forEach((v) => {
 		const sumXY = x0 * v.Y0 + x1 * v.Y1 + x2 * v.Y2 + x3 * v.Y3 + x4 * v.Y4;
-		deltaPsi += (v.A + v.B * jce) * sin(sumXY);
-		deltaEpsilon += (v.C + v.D * jce) * cos(sumXY);
+		nutLongitude += (v.A + v.B * jce) * sin(sumXY);
+		nutObliquity += (v.C + v.D * jce) * cos(sumXY);
 	});
 
-	deltaPsi = deltaPsi / 36_000_000;
-	deltaEpsilon = deltaEpsilon / 36_000_000;
+	nutLongitude = nutLongitude / 36_000_000;
+	nutObliquity = nutObliquity / 36_000_000;
 
 	// ===============================================================
 	// 5. CALCULATE THE TRUE OBLIQUITY OF THE ECLIPTIC, Ε (IN DEGREES)
@@ -195,7 +217,7 @@ export default function (args: {
 
 	// 5.1. Calculate the mean obliquity of the ecliptic, ε0 (in arc seconds)
 	const U = jme / 10;
-	const e0 =
+	const meanObliquity =
 		84_381.448 -
 		4_680.93 * U -
 		1.55 * U ** 2 +
@@ -209,19 +231,19 @@ export default function (args: {
 		2.45 * U ** 10;
 
 	// 5.2. Calculate the true obliquity of the ecliptic, ε (in degrees)
-	const epsilon = e0 / 3_600 + deltaEpsilon;
+	const trueObliquity = meanObliquity / 3_600 + nutObliquity;
 
 	// =======================================================
 	// 6. CALCULATE THE ABERRATION CORRECTION, ΔΤ (IN DEGREES)
 	// =======================================================
 
-	const deltaTau = -20.4898 / (3600 * r);
+	const abrCorrection = -20.4898 / (3600 * r);
 
 	// =======================================================
 	// 7. CALCULATE THE APPARENT SUN LONGITUDE, Λ (IN DEGREES)
 	// =======================================================
 
-	const lambda = theta + deltaPsi + deltaTau;
+	const appSunLongitude = geoLongitude + nutLongitude + abrCorrection;
 
 	// =================================================================
 	// 8. CALCULATE THE APPARENT SIDEREAL TIME AT GREENWICH AT ANY GIVEN
@@ -229,52 +251,56 @@ export default function (args: {
 	// =================================================================
 
 	// 8.1. Calculate the mean sidereal time at Greenwich, ν0 (in degrees)
-	let nu0 =
+	let meanSiderealTime =
 		280.46061837 +
 		360.98564736629 * (jd - 2_451_545) +
 		0.000387933 * jc ** 2 -
 		jc ** 3 / 38_710_000;
 
 	// 8.2. Limit ν0 to the range from 0 to 360
-	nu0 = limitDegrees(nu0);
+	meanSiderealTime = limitDegrees(meanSiderealTime);
 
 	// 8.3. Calculate the apparent sidereal time at Greenwich, ν (in degrees)
-	const nu = nu0 + deltaPsi * cos(epsilon);
+	const siderealTime = meanSiderealTime + nutLongitude * cos(trueObliquity);
 
 	// ===============================================================
 	// 9. CALCULATE THE GEOCENTRIC SUN RIGHT ASCENSION, Α (IN DEGREES)
 	// ===============================================================
 
 	// 9.1. Calculate the sun right ascension, α (in radians)
-	let alpha = Math.atan2(
-		sin(lambda) * cos(epsilon) - tan(beta) * sin(epsilon),
-		cos(lambda)
+	let geoSunRightAscension = Math.atan2(
+		sin(appSunLongitude) * cos(trueObliquity) -
+			tan(geoLatitude) * sin(trueObliquity),
+		cos(appSunLongitude)
 	);
 
 	// 9.2. Calculate α in degrees using, then limit it to the range from 0 to 360
-	alpha = radToDegrees(alpha);
-	alpha = limitDegrees(alpha);
+	geoSunRightAscension = radToDegrees(geoSunRightAscension);
+	geoSunRightAscension = limitDegrees(geoSunRightAscension);
 
 	// ============================================================
 	// 10. CALCULATE THE GEOCENTRIC SUN DECLINATION, Δ (IN DEGREES)
 	// ============================================================
 
-	const delta = radToDegrees(
-		Math.asin(sin(beta) * cos(epsilon) + cos(beta) * sin(epsilon) * sin(lambda))
+	const geoSunDeclination = radToDegrees(
+		Math.asin(
+			sin(geoLatitude) * cos(trueObliquity) +
+				cos(geoLatitude) * sin(trueObliquity) * sin(appSunLongitude)
+		)
 	);
 
 	// ===========================================================
 	// 11. CALCULATE THE OBSERVER LOCAL HOUR ANGLE, H (IN DEGREES)
 	// ===========================================================
 
-	const H = nu + args.longitude - alpha;
+	const obsHourAngle = siderealTime + args.longitude - geoSunRightAscension;
 
 	// =================================================================
 	// 12. CALCULATE THE TOPOCENTRIC SUN RIGHT ASCENSION Δ' (IN DEGREES)
 	// =================================================================
 
 	// 12.1. Calculate the equatorial horizontal parallax of the sun, ξ (in degrees)
-	const xi = 8.794 / (3_600 * r);
+	const sunEqHorParallax = 8.794 / (3_600 * r);
 
 	// 12.2. Calculate the term u (in radians)
 	const termU = Math.atan(0.99664719 * tan(args.latitude));
@@ -289,18 +315,22 @@ export default function (args: {
 		(args.elevation / 6_378_140) * cos(args.latitude);
 
 	// 12.5. Calculate the parallax in the sun right ascension, ∆α (in degrees)
-	const deltaAlpha = radToDegrees(
-		Math.atan2(-termX * sin(xi) * sin(H), cos(delta) - termX * sin(xi) * cos(H))
+	const sunRightAscParallax = radToDegrees(
+		Math.atan2(
+			-termX * sin(sunEqHorParallax) * sin(obsHourAngle),
+			cos(geoSunDeclination) - termX * sin(sunEqHorParallax) * cos(obsHourAngle)
+		)
 	);
 
 	// 12.6. Calculate the topocentric sun right ascension α' (in degrees)
-	const alphaAccent = alpha + deltaAlpha;
+	const topoSunRightAsc = geoSunRightAscension + sunRightAscParallax;
 
 	// 12.7. Calculate the topocentric sun declination, δ' (in degrees)
-	const deltaAccent = radToDegrees(
+	const topoSunDeclination = radToDegrees(
 		Math.atan2(
-			(sin(delta) - termY * sin(xi)) * cos(deltaAlpha),
-			cos(delta) - termX * sin(xi) * cos(H)
+			(sin(geoSunDeclination) - termY * sin(sunEqHorParallax)) *
+				cos(sunRightAscParallax),
+			cos(geoSunDeclination) - termX * sin(sunEqHorParallax) * cos(obsHourAngle)
 		)
 	);
 
@@ -308,25 +338,118 @@ export default function (args: {
 	// 13. CALCULATE THE TOPOCENTRIC LOCAL HOUR ANGLE, H' (IN DEGREES)
 	// ===============================================================
 
-	const HAccent = H - deltaAlpha;
+	const topoHourAngle = obsHourAngle - sunRightAscParallax;
+
+	// =======================================================
+	// 14. CALCULATE THE TOPOCENTRIC ZENITH ANGLE (IN DEGREES)
+	// =======================================================
+
+	// 14.1. Calculate the topocentric elevation angle without atmospheric refraction
+	// correction, e0 (in degrees)
+	const topoElevAngle = radToDegrees(
+		Math.asin(
+			sin(args.latitude) * sin(topoSunDeclination) +
+				cos(args.latitude) * cos(topoSunDeclination) * cos(topoHourAngle)
+		)
+	);
+
+	// 14.2. Calculate the atmospheric refraction correction, ∆e (in degrees)
+	const atmRefractionCorrection =
+		(args.pressure / 1010) *
+		(283 / (273 + args.temperature)) *
+		(1.02 / (60 * tan(topoElevAngle + 10.3 / (topoElevAngle + 5.11))));
+
+	// 14.3. Calculate the topocentric elevation angle, e (in degrees)
+	const topoTrueElevAngle = topoElevAngle + atmRefractionCorrection;
+
+	// 14.4. Calculate the topocentric zenith angle (in degrees)
+	const topoZenithAngle = 90 - topoTrueElevAngle;
+
+	// ===========================================================
+	// 15. CALCULATE THE TOPOCENTRIC AZIMUTH ANGLE, Φ (IN DEGREES)
+	// ===========================================================
+
+	// 15.1. Calculate the topocentric astronomers azimuth angle, Γ (in degrees).
+	// Change the value to degrees, then limit it to the range from 0 to 360.
+	let topoAstroAzimuthAngle = Math.atan2(
+		sin(topoHourAngle),
+		cos(topoHourAngle) * sin(args.latitude) -
+			tan(topoSunDeclination) * cos(args.latitude)
+	);
+
+	topoAstroAzimuthAngle = radToDegrees(topoAstroAzimuthAngle);
+	topoAstroAzimuthAngle = limitDegrees(topoAstroAzimuthAngle);
+
+	// 15.2. Calculate the topocentric azimuth angle, Φ (in degrees). Change the
+	// value to degrees, then limit it to the range from 0 to 360.
+	const topoAzimuthAngle = limitDegrees(topoAstroAzimuthAngle + 180);
+
+	// ==========================================================================
+	// 16. CALCULATE THE INCIDENCE ANGLE FOR A SURFACE ORIENTED IN ANY DIRECTION,
+	// I (IN DEGREES)
+	// ==========================================================================
+
+	const surfaceIncidence = radToDegrees(
+		Math.acos(
+			cos(topoZenithAngle) * cos(args.surfaceSlope) +
+				sin(args.surfaceSlope) *
+					sin(topoZenithAngle) *
+					cos(topoAstroAzimuthAngle - args.surfaceAzimuthRotation)
+		)
+	);
 
 	return {
-		JD: jd,
-		L: l,
-		B: b,
-		R: r,
-		Theta: theta,
-		Beta: beta,
-		DeltaPsi: deltaPsi,
-		DeltaEpsilon: deltaEpsilon,
-		Epsilon: epsilon,
-		Lambda: lambda,
-		Alpha: alpha,
-		Delta: delta,
-		H: H,
-		AlphaAccent: alphaAccent,
-		DeltaAccent: deltaAccent,
-		HAccent: HAccent,
+		JulianDay: jd,
+		JulianCentury: jc,
+		JulianEphemerisDay: jde,
+		JulianEphemerisCentury: jce,
+		JulianEphemerisMillenium: jme,
+
+		EarthHeliocentricLongitude: l,
+		EarthHeliocentricLatitude: b,
+		EarthRadiusVector: r,
+
+		GeocentricLongitude: geoLongitude,
+		GeocentricLatitude: geoLatitude,
+
+		MeanMoonSunElongation: x0,
+		MeanSunAnomaly: x1,
+		MeanMoonAnomaly: x2,
+		MoonArgumentLatitude: x3,
+		MoonAscendingLongitude: x4,
+		NutationLongitude: nutLongitude,
+		NutationObliquity: nutObliquity,
+
+		MeanEclipticObliquity: meanObliquity,
+		TrueEclipticObliquity: trueObliquity,
+
+		AberrationCorrection: abrCorrection,
+		ApparentSunLongitude: appSunLongitude,
+
+		MeanSiderealTime: meanSiderealTime,
+		SiderealTime: siderealTime,
+
+		GeocentricSunRightAscension: geoSunRightAscension,
+		GeocentricSunDeclination: geoSunDeclination,
+
+		ObserverHourAngle: obsHourAngle,
+
+		SunEquatorialHorizontalParallax: sunEqHorParallax,
+		SunRightAscensionParallax: sunRightAscParallax,
+		TopocentricSunRightAscension: topoSunRightAsc,
+		TopocentricSunDeclination: topoSunDeclination,
+
+		TopocentricHourAngle: topoHourAngle,
+
+		TopocentricElevationAngle: topoElevAngle,
+		AtmosphericRefractionCorrection: atmRefractionCorrection,
+		TopocentricTrueElevationAngle: topoTrueElevAngle,
+		TopocentricZenithAngle: topoZenithAngle,
+
+		TopocentricAstronomersAzimuthAngle: topoAstroAzimuthAngle,
+		TopocentricAzimuthAngle: topoAzimuthAngle,
+
+		SurfaceIncidenceAngle: surfaceIncidence,
 	};
 }
 
